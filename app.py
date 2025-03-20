@@ -61,6 +61,15 @@ pdf_file = st.file_uploader("보험약관 PDF 파일을 업로드하세요", typ
 # 사용자 프롬프트 입력
 user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품의 면책기간을 추출해줘")
 
+# 고급 설정 섹션
+with st.expander("고급 설정"):
+    starting_page = st.number_input("시작 페이지 번호", min_value=1, value=1, help="약관의 주요 내용이 시작되는 페이지 번호")
+    col1, col2 = st.columns(2)
+    with col1:
+        chunk_size = st.number_input("청크 크기 (페이지)", min_value=1, max_value=10, value=5, help="한 번에 처리할 페이지 수")
+    with col2:
+        max_chunks = st.number_input("최대 청크 수", min_value=1, value=10, help="처리할 최대 청크 수 (페이지 * 청크 수 = 총 분석 페이지)")
+
 def split_pdf_bytes(pdf_bytes, start_page, end_page):
     """PDF의 특정 페이지 범위를 추출하여 새 PDF 바이트로 반환"""
     try:
@@ -112,17 +121,29 @@ if st.button("전송"):
         # PDF 페이지 수 확인
         pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
         total_pages = len(pdf_reader.pages)
-        st.info(f"PDF 페이지 수: {total_pages}페이지")
         
-        # 청크 크기 설정 (페이지당)
-        chunk_size = 3  # 한 번에 처리할 페이지 수를 3페이지로 줄임
-        chunks = math.ceil(total_pages / chunk_size)
+        # 사용자 지정 시작 페이지 적용 (인덱스는 0부터 시작하므로 1을 빼줌)
+        start_page_idx = starting_page - 1
+        if start_page_idx >= total_pages:
+            st.error(f"시작 페이지 번호({starting_page})가 총 페이지 수({total_pages})보다 큽니다.")
+            st.stop()
+        
+        available_pages = total_pages - start_page_idx
+        max_processable_pages = chunk_size * max_chunks
+        pages_to_process = min(available_pages, max_processable_pages)
+        end_page_idx = start_page_idx + pages_to_process
+        
+        st.info(f"PDF 페이지 수: {total_pages}페이지, 분석 범위: {starting_page}~{end_page_idx} ({pages_to_process}페이지)")
+        
+        # 청크 수 계산
+        chunks = math.ceil(pages_to_process / chunk_size)
         
         # 시스템 프롬프트
         chunk_prompt = (
             "당신은 보험 상품 약관에서 핵심 정보를 추출하는 AI 에이전트입니다. "
             "주어진 보험 상품 약관 PDF의 일부 페이지에서 아래 정보를 추출하세요. "
             "이 정보는 전체 약관의 일부분이며, 추출한 정보는 나중에 종합하여 분석할 것입니다.\n"
+            "추출 가능한 정보만 간결하게 추출하고, 정보가 없는 항목은 '정보 없음'으로 표시하세요.\n"
             "- 담보\n"
             "- 지급금액\n"
             "- 지급조건\n"
@@ -150,20 +171,20 @@ if st.button("전송"):
         
         # 각 청크 처리
         for i in range(chunks):
-            start_page = i * chunk_size
-            end_page = min((i + 1) * chunk_size, total_pages)
+            chunk_start_page = start_page_idx + (i * chunk_size)
+            chunk_end_page = min(start_page_idx + ((i + 1) * chunk_size), end_page_idx)
             
-            status_text.text(f"처리 중... {i+1}/{chunks} 청크 (페이지 {start_page+1}-{end_page})")
+            status_text.text(f"처리 중... {i+1}/{chunks} 청크 (페이지 {chunk_start_page+1}-{chunk_end_page})")
             progress_bar.progress((i / chunks) * 0.8)  # 80%까지만 진행 (나머지 20%는 종합 분석용)
             
             # PDF 청크 추출
-            chunk_pdf_bytes = split_pdf_bytes(pdf_bytes, start_page, end_page)
+            chunk_pdf_bytes = split_pdf_bytes(pdf_bytes, chunk_start_page, chunk_end_page)
             if chunk_pdf_bytes:
                 # 청크 분석
                 chunk_result = analyze_pdf_chunk(model, chunk_pdf_bytes, final_chunk_prompt)
                 if chunk_result:
                     chunk_results.append(chunk_result)
-                    extraction_info.append(f"페이지 {start_page+1}-{end_page} 정보: {chunk_result[:100]}...")
+                    extraction_info.append(f"페이지 {chunk_start_page+1}-{chunk_end_page}: {chunk_result[:100]}...")
         
         if chunk_results:
             # 종합 분석 프롬프트
@@ -173,25 +194,26 @@ if st.button("전송"):
             summary_prompt = (
                 "당신은 보험 상품 약관에서 핵심 정보를 추출하는 AI 에이전트입니다. "
                 "이전에 약관의 여러 부분에서 추출한 정보를 종합하여 하나의 일관된 결과물을 만들어주세요. "
-                "아래 형식으로 정보를 테이블 형태로 구성하여 제공하세요:\n"
-                "- 담보 (각 담보별로 구분하여 정보 제공)\n"
+                "아래 형식으로 정보를 담보별로 구분하여 테이블 형태로 제공하세요:\n"
+                "1. 상품 기본 정보 (무배당/배당 여부, 갱신형/비갱신형 등 상품 전체에 해당하는 정보)\n\n"
+                "2. 담보별 정보 (담보별로 정보 구분하여 제공):\n"
+                "- 담보명\n"
                 "- 지급금액\n"
                 "- 지급조건\n"
                 "- 보장기간\n"
-                "- 갱신형/비갱신형 여부\n"
-                "- 담보별 면책기간\n"
-                "- 담보별 감액%\n"
-                "- 감액기간\n"
-                "- 지급형태\n"
-                "- 무배당/배당 여부\n\n"
+                "- 면책기간\n"
+                "- 감액% 및 감액기간\n"
+                "- 지급형태\n\n"
                 "추출된 정보들이 서로 중복되거나 충돌할 수 있습니다. "
-                "이런 경우 가장 정확하고 상세한 정보를 선택하여 종합적인 분석 결과를 제공해주세요.\n\n"
+                "이런 경우 가장 정확하고 상세한 정보를 선택하여 종합적인 분석 결과를 제공해주세요.\n"
+                "정보가 불충분하더라도 추출 가능한 내용만 체계적으로 정리하여 제공하세요. "
+                "정보가 없는 경우는 '정보 없음'으로 표시하지 말고 해당 항목을 생략하세요.\n\n"
                 "이전에 추출한 정보:\n"
             )
             
             # 모든 추출 결과 추가
-            for result in chunk_results:
-                summary_prompt += f"\n---\n{result}\n---\n"
+            for i, result in enumerate(chunk_results):
+                summary_prompt += f"\n--- 청크 {i+1} ---\n{result}\n---\n"
                 
             summary_prompt += f"\n\nUser Prompt: {user_prompt}"
             
@@ -208,7 +230,7 @@ if st.button("전송"):
                 )
                 
                 progress_bar.progress(1.0)
-                st.success("추출 완료!")
+                st.success(f"추출 완료! ({starting_page}~{end_page_idx}페이지)")
                 st.text_area("추출된 정보", value=final_response.text, height=300)
                 
                 # 디버깅 정보 (접기 가능)
