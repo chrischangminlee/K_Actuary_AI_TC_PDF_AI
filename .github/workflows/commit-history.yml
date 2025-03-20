@@ -1,0 +1,29 @@
+name: Commit History
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  record-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get commit history
+        run: |
+          echo "Commit History:" >> commit_history.md
+          echo "Last updated: $(date)" >> commit_history.md
+          echo "" >> commit_history.md
+          git log --pretty=format:"### %h - %s (%ad)" --date=short >> commit_history.md
+
+      - name: Create Pull Request
+        uses: peter-evans/create-or-update-pull-request@v5
+        with:
+          commit-message: "Update commit history"
+          title: "Update commit history"
+          body: "Automatically updated commit history"
+          branch: commit-history
+          delete-branch: false 
