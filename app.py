@@ -119,9 +119,10 @@ if st.button("전송"):
         chunks = math.ceil(total_pages / chunk_size)
         
         # 시스템 프롬프트
-        system_prompt = (
+        chunk_prompt = (
             "당신은 보험 상품 약관에서 핵심 정보를 추출하는 AI 에이전트입니다. "
-            "주어진 보험 상품 약관 PDF에서 아래 최대한 담보별로 정보를 명확하고 간결하게 추출하여서 테이블 형태로 제공하세요:\n"
+            "주어진 보험 상품 약관 PDF의 일부 페이지에서 아래 정보를 추출하세요. "
+            "이 정보는 전체 약관의 일부분이며, 추출한 정보는 나중에 종합하여 분석할 것입니다.\n"
             "- 담보\n"
             "- 지급금액\n"
             "- 지급조건\n"
@@ -133,8 +134,9 @@ if st.button("전송"):
             "- 지급형태\n"
             "- 무배당/배당 여부\n"
         )
-        final_prompt = system_prompt + "\n\nUser Prompt: " + user_prompt
-
+        
+        final_chunk_prompt = chunk_prompt + "\n\nUser Prompt: " + user_prompt
+        
         # 모델 초기화
         model = genai.GenerativeModel('gemini-1.5-flash')
         
@@ -143,7 +145,8 @@ if st.button("전송"):
         status_text = st.empty()
         
         # 결과 저장용 리스트
-        results = []
+        chunk_results = []
+        extraction_info = []
         
         # 각 청크 처리
         for i in range(chunks):
@@ -151,20 +154,72 @@ if st.button("전송"):
             end_page = min((i + 1) * chunk_size, total_pages)
             
             status_text.text(f"처리 중... {i+1}/{chunks} 청크 (페이지 {start_page+1}-{end_page})")
-            progress_bar.progress((i + 1) / chunks)
+            progress_bar.progress((i / chunks) * 0.8)  # 80%까지만 진행 (나머지 20%는 종합 분석용)
             
             # PDF 청크 추출
             chunk_pdf_bytes = split_pdf_bytes(pdf_bytes, start_page, end_page)
             if chunk_pdf_bytes:
                 # 청크 분석
-                chunk_result = analyze_pdf_chunk(model, chunk_pdf_bytes, final_prompt)
+                chunk_result = analyze_pdf_chunk(model, chunk_pdf_bytes, final_chunk_prompt)
                 if chunk_result:
-                    results.append(chunk_result)
+                    chunk_results.append(chunk_result)
+                    extraction_info.append(f"페이지 {start_page+1}-{end_page} 정보: {chunk_result[:100]}...")
         
-        if results:
-            # 결과 합치기
-            combined_result = "\n\n".join(results)
-            st.success("추출 완료!")
-            st.text_area("추출된 정보", value=combined_result, height=300)
+        if chunk_results:
+            # 종합 분석 프롬프트
+            status_text.text("최종 정보 종합 중...")
+            progress_bar.progress(0.9)  # 90%
+            
+            summary_prompt = (
+                "당신은 보험 상품 약관에서 핵심 정보를 추출하는 AI 에이전트입니다. "
+                "이전에 약관의 여러 부분에서 추출한 정보를 종합하여 하나의 일관된 결과물을 만들어주세요. "
+                "아래 형식으로 정보를 테이블 형태로 구성하여 제공하세요:\n"
+                "- 담보 (각 담보별로 구분하여 정보 제공)\n"
+                "- 지급금액\n"
+                "- 지급조건\n"
+                "- 보장기간\n"
+                "- 갱신형/비갱신형 여부\n"
+                "- 담보별 면책기간\n"
+                "- 담보별 감액%\n"
+                "- 감액기간\n"
+                "- 지급형태\n"
+                "- 무배당/배당 여부\n\n"
+                "추출된 정보들이 서로 중복되거나 충돌할 수 있습니다. "
+                "이런 경우 가장 정확하고 상세한 정보를 선택하여 종합적인 분석 결과를 제공해주세요.\n\n"
+                "이전에 추출한 정보:\n"
+            )
+            
+            # 모든 추출 결과 추가
+            for result in chunk_results:
+                summary_prompt += f"\n---\n{result}\n---\n"
+                
+            summary_prompt += f"\n\nUser Prompt: {user_prompt}"
+            
+            try:
+                # 종합 분석 수행
+                final_response = model.generate_content(
+                    summary_prompt,
+                    generation_config={
+                        "temperature": 0.4,
+                        "top_p": 0.8,
+                        "top_k": 40,
+                        "max_output_tokens": 4096,
+                    }
+                )
+                
+                progress_bar.progress(1.0)
+                st.success("추출 완료!")
+                st.text_area("추출된 정보", value=final_response.text, height=300)
+                
+                # 디버깅 정보 (접기 가능)
+                with st.expander("디버깅 정보 (각 청크별 추출 내용)"):
+                    for info in extraction_info:
+                        st.write(info)
+                
+            except Exception as e:
+                st.error(f"종합 분석 중 오류 발생: {e}")
+                # 오류 발생 시 개별 청크 결과 표시
+                combined_result = "\n\n".join(chunk_results)
+                st.text_area("개별 청크 분석 결과", value=combined_result, height=300)
         else:
             st.error("정보 추출에 실패했습니다. 다시 시도해주세요.")
