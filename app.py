@@ -4,6 +4,8 @@ import PyPDF2
 import io
 from dotenv import load_dotenv
 import os
+import google.generativeai as genai
+from google.generativeai import types
 
 # Load environment variables
 load_dotenv()
@@ -20,11 +22,14 @@ def get_api_key():
     # Fallback to environment variable (for local development)
     return os.getenv('GEMINI_API_KEY')
 
-# API 키 확인
+# API 키 확인 및 설정
 api_key = get_api_key()
 if not api_key:
     st.error('Gemini API 키가 설정되지 않았습니다. .env 파일이나 Streamlit secrets에 API 키를 설정해주세요.')
     st.stop()
+
+# Gemini API 설정
+genai.configure(api_key=api_key)
 
 # 왼쪽 사이드바 내용
 st.sidebar.title("소개")
