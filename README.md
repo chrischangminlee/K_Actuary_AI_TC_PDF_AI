@@ -5,7 +5,7 @@
 ## 기능
 
 - PDF 형식의 보험 약관 업로드
-- 주요 보험 정보 자동 추출
+- Gemini AI를 활용한 주요 보험 정보 자동 추출
 - 사용자 정의 질문에 대한 응답
 
 ## 설치 방법
@@ -31,11 +31,11 @@ pip install -r requirements.txt
 
 1. `.env` 파일 생성:
 ```bash
-OPENAI_API_KEY=your-api-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
 2. Streamlit Cloud 배포 시:
-   - Streamlit Cloud의 앱 설정에서 secrets 섹션에 API 키를 추가하세요.
+   - Streamlit Cloud의 앱 설정에서 secrets 섹션에 Gemini API 키를 추가하세요.
 
 ## 실행 방법
 
@@ -50,10 +50,11 @@ streamlit run app.py
 1. GitHub에 코드를 푸시
 2. Streamlit Cloud에서 새 앱 배포
 3. GitHub 저장소 연결
-4. Secrets 설정에서 API 키 추가
+4. Secrets 설정에서 Gemini API 키 추가
 
 ## 주의사항
 
 - API 키를 직접 코드에 포함하지 마세요
 - `.env` 파일은 절대 GitHub에 커밋하지 마세요
-- 회사 기밀이나 개인정보가 포함된 약관은 업로드하지 마세요 
+- 회사 기밀이나 개인정보가 포함된 약관은 업로드하지 마세요
+- Gemini AI의 응답은 참고용이며, 정확성을 보장할 수 없습니다 
