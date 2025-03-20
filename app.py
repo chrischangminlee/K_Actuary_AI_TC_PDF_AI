@@ -57,66 +57,44 @@ if st.button("전송"):
     if pdf_file is None:
         st.error("보험약관 pdf를 첨부하세요")
     else:
-        # PDF 파일에서 텍스트 추출
-        try:
-            pdf_reader = PyPDF2.PdfReader(pdf_file)
-            pdf_text = ""
-            for page in pdf_reader.pages:
-                extracted = page.extract_text()
-                if extracted:
-                    pdf_text += extracted
-        except Exception as e:
-            st.error("PDF 파일을 읽는 중 오류가 발생했습니다.")
-            st.error(e)
-            pdf_text = ""
-        
-        if pdf_text:
-            with st.spinner("Gemini API 호출 중..."):
-                # 시스템 프롬프트 (추출할 정보 항목 포함)
-                system_prompt = (
-                    "You are an AI agent specialized in extracting key information from insurance product contracts. "
-                    "When given the text of an insurance product contract, extract the following fields clearly and concisely:\n"
-                    "- 담보 (Included coverages)\n"
-                    "- 지급금액 (Payment amount)\n"
-                    "- 지급조건 (Payment conditions)\n"
-                    "- 보장기간 (Coverage period)\n"
-                    "- 갱신형/비갱신형 여부 (Renewable or non-renewable)\n"
-                    "- 담보별 면책기간 (Exclusion period per coverage)\n"
-                    "- 담보별 감액% (Reduction percentage per coverage)\n"
-                    "- 감액기간 (Reduction period)\n"
-                    "- 지급형태 (Payment type)\n"
-                    "- 무배당/배당 여부 (Non-dividend/Dividend)\n"
-                )
-                # 최종 프롬프트: 시스템 프롬프트, 사용자 프롬프트, 그리고 PDF 텍스트를 포함
-                final_prompt = (
-                    system_prompt +
-                    "\n\nUser Prompt: " + user_prompt +
-                    "\n\nInsurance Contract Text:\n" + pdf_text
-                )
+        # 업로드한 파일의 바이트 읽기 (로컬에 저장하지 않고 바로 사용)
+        pdf_bytes = pdf_file.read()
 
-                # Gemini API 호출
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "gemini-2.0-flash",
-                    "prompt": final_prompt,
-                    "max_tokens": 1024,
-                    "temperature": 0.5
-                }
+        # Gemini API 클라이언트 초기화
+        client = genai.Client()  # 별도 API 키 설정이 필요한 경우, 환경변수나 config 파일로 처리
 
-                try:
-                    response = requests.post(api_url, headers=headers, json=payload)
-                    if response.status_code == 200:
-                        result = response.json()
-                        # 결과 JSON에서 추출된 정보를 가져온다고 가정 (예: 'output' 필드)
-                        output_text = result.get("output", "응답에 output 필드가 없습니다.")
-                        st.success("추출 완료!")
-                        st.text_area("추출된 정보", value=output_text, height=300)
-                    else:
-                        st.error(f"Gemini API 호출 실패: {response.status_code}")
-                        st.error(response.text)
-                except Exception as e:
-                    st.error("Gemini API 호출 중 오류가 발생했습니다.")
-                    st.error(e)
+        # 시스템 프롬프트: 추출할 정보 항목 명시
+        system_prompt = (
+            "You are an AI agent specialized in extracting key information from insurance product contracts. "
+            "When given the PDF of an insurance product contract, extract the following fields clearly and concisely:\n"
+            "- 담보 (Included coverages)\n"
+            "- 지급금액 (Payment amount)\n"
+            "- 지급조건 (Payment conditions)\n"
+            "- 보장기간 (Coverage period)\n"
+            "- 갱신형/비갱신형 여부 (Renewable or non-renewable)\n"
+            "- 담보별 면책기간 (Exclusion period per coverage)\n"
+            "- 담보별 감액% (Reduction percentage per coverage)\n"
+            "- 감액기간 (Reduction period)\n"
+            "- 지급형태 (Payment type)\n"
+            "- 무배당/배당 여부 (Non-dividend/Dividend)\n"
+        )
+        final_prompt = system_prompt + "\n\nUser Prompt: " + user_prompt
+
+        # Gemini API 호출: PDF 파일을 직접 읽어들여 처리하도록 함
+        with st.spinner("Gemini API 호출 중..."):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",  # 실제 사용할 모델명으로 조정 가능
+                    contents=[
+                        types.Part.from_bytes(
+                            data=pdf_bytes,
+                            mime_type='application/pdf'
+                        ),
+                        final_prompt
+                    ]
+                )
+                st.success("추출 완료!")
+                st.text_area("추출된 정보", value=response.text, height=300)
+            except Exception as e:
+                st.error("Gemini API 호출 중 오류가 발생했습니다.")
+                st.error(e)
