@@ -86,16 +86,43 @@ if st.button("전송"):
         with st.spinner("Gemini API 호출 중..."):
             try:
                 # 모델 초기화
-                model = genai.GenerativeModel('gemini-pro-vision')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # PDF 파일 처리
-                response = model.generate_content([
-                    final_prompt,
-                    {"mime_type": "application/pdf", "data": pdf_bytes}
-                ])
+                response = model.generate_content(
+                    [
+                        final_prompt,
+                        {"mime_type": "application/pdf", "data": pdf_bytes}
+                    ],
+                    generation_config={
+                        "temperature": 0.4,
+                        "top_p": 0.8,
+                        "top_k": 40,
+                        "max_output_tokens": 2048,
+                    },
+                    safety_settings=[
+                        {
+                            "category": "HARM_CATEGORY_HARASSMENT",
+                            "threshold": "BLOCK_NONE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_HATE_SPEECH",
+                            "threshold": "BLOCK_NONE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            "threshold": "BLOCK_NONE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                            "threshold": "BLOCK_NONE"
+                        }
+                    ]
+                )
                 
                 st.success("추출 완료!")
                 st.text_area("추출된 정보", value=response.text, height=300)
             except Exception as e:
                 st.error("Gemini API 호출 중 오류가 발생했습니다.")
                 st.error(e)
+                st.info("PDF 파일이 너무 크거나 복잡할 수 있습니다. 더 작은 크기의 PDF로 시도해보세요.")
