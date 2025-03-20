@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from google.generativeai import types
+import math
 
 # Load environment variables
 load_dotenv()
@@ -57,15 +58,54 @@ pdf_file = st.file_uploader("보험약관 PDF 파일을 업로드하세요", typ
 # 사용자 프롬프트 입력
 user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품의 면책기간을 추출해줘")
 
+def process_pdf_chunk(pdf_bytes, start_page, end_page):
+    """PDF의 특정 페이지 범위를 처리"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+        text = ""
+        for page_num in range(start_page, min(end_page, len(pdf_reader.pages))):
+            page = pdf_reader.pages[page_num]
+            text += page.extract_text() + "\n"
+        return text
+    except Exception as e:
+        st.error(f"PDF 처리 중 오류 발생: {e}")
+        return ""
+
+def analyze_chunk(model, chunk_text, prompt):
+    """PDF 청크를 분석"""
+    try:
+        response = model.generate_content(
+            [prompt, chunk_text],
+            generation_config={
+                "temperature": 0.4,
+                "top_p": 0.8,
+                "top_k": 40,
+                "max_output_tokens": 2048,
+            }
+        )
+        return response.text
+    except Exception as e:
+        st.error(f"청크 분석 중 오류 발생: {e}")
+        return ""
+
 # 전송 버튼
 if st.button("전송"):
     if pdf_file is None:
         st.error("보험약관 pdf를 첨부하세요")
     else:
-        # 업로드한 파일의 바이트 읽기 (로컬에 저장하지 않고 바로 사용)
+        # 업로드한 파일의 바이트 읽기
         pdf_bytes = pdf_file.read()
-
-        # 시스템 프롬프트: 추출할 정보 항목 명시
+        
+        # PDF 페이지 수 확인
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+        total_pages = len(pdf_reader.pages)
+        st.info(f"PDF 페이지 수: {total_pages}페이지")
+        
+        # 청크 크기 설정 (페이지당)
+        chunk_size = 5  # 한 번에 처리할 페이지 수
+        chunks = math.ceil(total_pages / chunk_size)
+        
+        # 시스템 프롬프트
         system_prompt = (
             "You are an AI agent specialized in extracting key information from insurance product contracts. "
             "When given the PDF of an insurance product contract, extract the following fields clearly and concisely:\n"
@@ -82,47 +122,36 @@ if st.button("전송"):
         )
         final_prompt = system_prompt + "\n\nUser Prompt: " + user_prompt
 
-        # Gemini API 호출
-        with st.spinner("Gemini API 호출 중..."):
-            try:
-                # 모델 초기화
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                # PDF 파일 처리
-                response = model.generate_content(
-                    [
-                        final_prompt,
-                        {"mime_type": "application/pdf", "data": pdf_bytes}
-                    ],
-                    generation_config={
-                        "temperature": 0.4,
-                        "top_p": 0.8,
-                        "top_k": 40,
-                        "max_output_tokens": 2048,
-                    },
-                    safety_settings=[
-                        {
-                            "category": "HARM_CATEGORY_HARASSMENT",
-                            "threshold": "BLOCK_NONE"
-                        },
-                        {
-                            "category": "HARM_CATEGORY_HATE_SPEECH",
-                            "threshold": "BLOCK_NONE"
-                        },
-                        {
-                            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                            "threshold": "BLOCK_NONE"
-                        },
-                        {
-                            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                            "threshold": "BLOCK_NONE"
-                        }
-                    ]
-                )
-                
-                st.success("추출 완료!")
-                st.text_area("추출된 정보", value=response.text, height=300)
-            except Exception as e:
-                st.error("Gemini API 호출 중 오류가 발생했습니다.")
-                st.error(e)
-                st.info("PDF 파일이 너무 크거나 복잡할 수 있습니다. 더 작은 크기의 PDF로 시도해보세요.")
+        # 모델 초기화
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # 진행 상태 표시
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # 결과 저장용 리스트
+        results = []
+        
+        # 각 청크 처리
+        for i in range(chunks):
+            start_page = i * chunk_size
+            end_page = min((i + 1) * chunk_size, total_pages)
+            
+            status_text.text(f"처리 중... {i+1}/{chunks} 청크 (페이지 {start_page+1}-{end_page})")
+            progress_bar.progress((i + 1) / chunks)
+            
+            # PDF 청크 처리
+            chunk_text = process_pdf_chunk(pdf_bytes, start_page, end_page)
+            if chunk_text:
+                # 청크 분석
+                chunk_result = analyze_chunk(model, chunk_text, final_prompt)
+                if chunk_result:
+                    results.append(chunk_result)
+        
+        if results:
+            # 결과 합치기
+            combined_result = "\n\n".join(results)
+            st.success("추출 완료!")
+            st.text_area("추출된 정보", value=combined_result, height=300)
+        else:
+            st.error("정보 추출에 실패했습니다. 다시 시도해주세요.")
