@@ -65,9 +65,6 @@ if st.button("전송"):
         # 업로드한 파일의 바이트 읽기 (로컬에 저장하지 않고 바로 사용)
         pdf_bytes = pdf_file.read()
 
-        # Gemini API 클라이언트 초기화
-        client = genai.Client()  # 별도 API 키 설정이 필요한 경우, 환경변수나 config 파일로 처리
-
         # 시스템 프롬프트: 추출할 정보 항목 명시
         system_prompt = (
             "You are an AI agent specialized in extracting key information from insurance product contracts. "
@@ -85,19 +82,18 @@ if st.button("전송"):
         )
         final_prompt = system_prompt + "\n\nUser Prompt: " + user_prompt
 
-        # Gemini API 호출: PDF 파일을 직접 읽어들여 처리하도록 함
+        # Gemini API 호출
         with st.spinner("Gemini API 호출 중..."):
             try:
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",  # 실제 사용할 모델명으로 조정 가능
-                    contents=[
-                        types.Part.from_bytes(
-                            data=pdf_bytes,
-                            mime_type='application/pdf'
-                        ),
-                        final_prompt
-                    ]
-                )
+                # 모델 초기화
+                model = genai.GenerativeModel('gemini-pro-vision')
+                
+                # PDF 파일 처리
+                response = model.generate_content([
+                    final_prompt,
+                    {"mime_type": "application/pdf", "data": pdf_bytes}
+                ])
+                
                 st.success("추출 완료!")
                 st.text_area("추출된 정보", value=response.text, height=300)
             except Exception as e:
