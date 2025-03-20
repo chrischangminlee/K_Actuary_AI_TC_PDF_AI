@@ -36,9 +36,13 @@ genai.configure(api_key=api_key)
 st.sidebar.title("소개")
 st.sidebar.markdown("""
 본 AI 챗 서비스는 한국 계리업무를 수행하는 계리사를 위해 개발된 개인 프로젝트로 만들어진 AI Chatbot / Agent입니다.
+                    
 본 pdf 분석 AI Agent와 더불어 현재 다양한 유용한 기능들이 지속적으로 개발 중이며, 보다 향상된 서비스를 제공하기 위해 개선을 이어가고 있습니다.
-* (주의) 본 AI가 제공하는 답변은 참고용이며, 정확성을 보장할 수 없습니다. 보안을 위해 회사 기밀, 개인정보등은 제공하지 않기를 권장드리며, 반드시 실제 업무에 적용하기 전에 검토하시길 바랍니다.
+* 현재 API 비용이 가장 저렴한 LLM인 gpt3.5-turbo를 사용하고 있어 기대보다 성능이 떨어질 수 있습니다.
+
+
 """)
+st.sidebar.markdown('<p style="color: red; font-size: 0.8em;">(주의) 본 AI가 제공하는 답변은 참고용이며, 정확성을 보장할 수 없습니다. 보안을 위해 회사 기밀, 개인정보등은 제공하지 않기를 권장드리며, 반드시 실제 업무에 적용하기 전에 검토하시길 바랍니다.</p>', unsafe_allow_html=True)
 
 st.sidebar.markdown("### 타 Link")
 st.sidebar.markdown("[개발자 링크드인](https://www.linkedin.com/in/chrislee9407/)")
@@ -49,7 +53,7 @@ st.sidebar.markdown("[K Actuary AI Agent](https://kactuaryagent.streamlit.app/)"
 st.title("K-Actuary 약관 정보 추출 AI Agent")
 st.write(
     "안녕하세요, K-Actuary 약관 정보 추출 AI Agent입니다. "
-    "상품약관을 업로드 후 '상품의 면책기간을 추출해줘' 와 같은 프롬프트를 입력하시면, 계리 모델링에 필요한 정보를 추출합니다."
+    "상품약관을 업로드 후 '상품의 면책기간을 추출해줘' 와 같은 프롬프트를 입력하시면, 계리 모델링에 필요한 정보를 추출합니다. 담보, 지급금액, 지급조건, 보장기간, 갱신형/비갱신형 여부, 담보별 면책기간, 담보별 감액 %, 감액기간, 지급형태, 무배당/배당 여부와 같은 정보를 추출요청하여 보세요."
 )
 
 # PDF 파일 업로드 위젯
