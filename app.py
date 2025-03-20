@@ -86,7 +86,7 @@ if st.button("전송"):
         with st.spinner("Gemini API 호출 중..."):
             try:
                 # 모델 초기화
-                model = genai.GenerativeModel('gemini-pro-vision')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # PDF 파일 처리
                 response = model.generate_content([
