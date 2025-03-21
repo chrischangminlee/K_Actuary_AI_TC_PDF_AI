@@ -57,7 +57,7 @@ st.write(
 
 # PDF 파일 업로드 위젯
 pdf_file = st.file_uploader("보험약관 PDF 파일을 업로드하세요", type=["pdf"])
-st.markdown("[예시 보험약관: 메리츠 공시실 - 무배당 메리츠 또 걸려도 또 받는 암보험2501(갱신형)약관](https://www.meritzfire.com/disclosure/product-announcement/product-list.do#!/)")
+st.markdown("[예시 보험약관: 메리츠화재 공시실 - 상품종류:암보험 - 보험상품명: 무배당 메리츠 또 걸려도 또 받는 암보험2501(갱신형)약관](https://www.meritzfire.com/disclosure/product-announcement/product-list.do#!/)")
 
 # 사용자 프롬프트 입력
 user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품 정보 추출해줘")
