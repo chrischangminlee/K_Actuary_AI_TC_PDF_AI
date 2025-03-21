@@ -57,6 +57,7 @@ st.write(
 
 # PDF 파일 업로드 위젯
 pdf_file = st.file_uploader("보험약관 PDF 파일을 업로드하세요", type=["pdf"])
+st.markdown("[예시 보험약관: 메리츠 공시실 - 무배당 메리츠 또 걸려도 또 받는 암보험2501(갱신형)약관](https://www.meritzfire.com/disclosure/product-announcement/product-list.do#!/)")
 
 # 사용자 프롬프트 입력
 user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품 정보 추출해줘")
@@ -180,6 +181,7 @@ def process_pdf_in_chunks(pdf_bytes, user_prompt, model):
         summary_prompt = (
             "당신은 보험 상품 약관에서 핵심 정보를 추출하는 AI 에이전트입니다. "
             "이전에 약관의 여러 부분에서 추출한 정보를 종합하여 하나의 일관된 결과물을 만들어주세요. "
+            "전체 약관을 청크로 나누어서 분석을 한 것이니, 정보가 불충분하더라도 추출 가능한 내용을 최대한 체계적으로 정리하여 제공하세요. 정보가 부족하다는 말은 하지마세요.\n"
             "아래 형식으로 정보를 담보별로 구분하여 테이블 형태로 제공하세요:\n\n"
             "결과는 마크다운 테이블 형식으로 제공하세요. 예를 들어:\n"
             "| 상품 기본 정보 | |\n"
