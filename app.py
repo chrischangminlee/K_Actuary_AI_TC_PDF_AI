@@ -52,14 +52,14 @@ st.sidebar.markdown("[K Actuary AI Agent](https://kactuaryagent.streamlit.app/)"
 st.title("K-Actuary 약관 정보 추출 AI Agent")
 st.write(
     "안녕하세요, K-Actuary 약관 정보 추출 AI Agent입니다. "
-    "상품약관을 업로드 후 '상품의 면책기간을 추출해줘' 와 같은 프롬프트를 입력하시면, 계리 모델링에 필요한 정보를 추출합니다. 담보, 지급금액, 지급조건, 보장기간, 갱신형/비갱신형 여부, 담보별 면책기간, 담보별 감액 %, 감액기간, 지급형태, 무배당/배당 여부와 같은 정보를 추출요청하여 보세요."
+    "상품약관을 업로드 후 '상품의 정보를 추출해줘' 와 같은 프롬프트를 입력하시면, 계리 모델링에 필요한 정보를 추출합니다. 담보, 지급금액, 지급조건, 보장기간, 갱신형/비갱신형 여부, 담보별 면책기간, 담보별 감액 %, 감액기간, 지급형태, 무배당/배당 여부와 같은 정보를 추출요청하여 보세요."
 )
 
 # PDF 파일 업로드 위젯
 pdf_file = st.file_uploader("보험약관 PDF 파일을 업로드하세요", type=["pdf"])
 
 # 사용자 프롬프트 입력
-user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품의 면책기간을 추출해줘")
+user_prompt = st.text_input("프롬프트를 입력하세요", placeholder="예: 상품 정보 추출해줘")
 
 def split_pdf_bytes(pdf_bytes, start_page, end_page):
     """PDF의 특정 페이지 범위를 추출하여 새 PDF 바이트로 반환"""
